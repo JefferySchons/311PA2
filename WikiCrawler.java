@@ -222,7 +222,7 @@ public class WikiCrawler {
 				}
 		}
 		//increment counter for what link to look at
-		if(counter<max_pages) 
+		if(counter<max_pages-1) 
 		{
 			System.out.println("start of new craw");
 			counter++;
