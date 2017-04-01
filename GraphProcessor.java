@@ -2,15 +2,31 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Scanner;
+import java.util.Set;
+import java.util.Stack;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Queue;
 
 public class GraphProcessor {
-private int numVertices;
-private HashMap<String, LinkedList<String>> hm;
+	private int numVertices;
+	private HashMap<String, LinkedList<String>> hm;
+	private HashMap<String, LinkedList<String>> reverseHm;
 
+	private HashMap<String, String> parents;
+	private HashMap<String, Integer> numerators;
+	private HashMap<String, Integer> denominators;
+	private TreeMap<Integer, String> denomSorted;
+
+	ArrayList<ArrayList<String>> cycles;
+	
 
 	/**public static void main(String[] args) {
 		GraphProcessor g = new GraphProcessor("/Users/erelsbernd/Documents/IowaState/IowaStateSpring2017/cs311/PA2/wikiCC.txt");	
@@ -22,7 +38,7 @@ private HashMap<String, LinkedList<String>> hm;
 	as strings. */
 	public GraphProcessor (String graphDate)
 	{
-		//create HashMap 
+		//create HashMap
 		hm =  new HashMap<String, LinkedList<String>>();
 		
 		//read in file and insert edges
@@ -164,13 +180,144 @@ private HashMap<String, LinkedList<String>> hm;
 		Collections.reverse(bfsPath);
 		return bfsPath;
 	}
+
 	
-	private ArrayList<String> findCycle(String root) {
-		return null;
+	private int finishDFS(String current, int count) {
+		
+		LinkedList<String> neighbors = hm.get(current);
+		
+		if (neighbors == null) {
+			denominators.put(current, count++);
+			denomSorted.put(count, current);
+			return count;
+		}
+		
+		for (String neighbor : neighbors) {
+			if (!numerators.containsKey(neighbor)) {
+				numerators.put(neighbor, count++);
+				parents.put(neighbor, current);
+				count = finishDFS(neighbor, count);
+			}
+		}
+		
+		//if (!denominators.containsKey(current)) {
+		denominators.put(current, count++);
+		denomSorted.put(count, current);
+		
+		return count;
 	}
 	
 	private ArrayList<String> findSCC(HashMap<String, LinkedList<String>> map) {
+		parents = new HashMap<String, String>();
+		numerators = new HashMap<String, Integer>();
+		denominators = new HashMap<String, Integer>();
+		denomSorted = new TreeMap<Integer, String>(Collections.reverseOrder());
+		
+		
+		Set<String> vertices = hm.keySet();
+		
+		int count = 1;
+		if (vertices == null) {
+			return null;
+		}
+		// DFS and mark numerators with visit number
+		// this for loop will catch any nodes not reachable through start
+		for (String s: vertices) {
+			if (!numerators.containsKey(s)) {
+				numerators.put(s, count++);
+				count = finishDFS(s, count);
+			}
+		}
+
+		System.out.println("parents: " + parents.toString());
+		System.out.println("numerators: " + numerators.toString());
+		System.out.println("denominators: " + denominators.toString());
+		
+		makeDescendingDenomList();
+		reverseGraph();
+		findCycles();
+		
 		return null;
+	}
+	
+	
+	//INPUT: denoms from global , OUTPUT: denom-list, descending
+	//find highest denom, make a list of vertexes going backwards (only use denoms)
+	/// grab the Set from denoms
+	//// do a descending sort on it
+	private ArrayList<String> makeDescendingDenomList() {
+		ArrayList<String> descendingPath = new ArrayList<String>();
+		
+		// Get a set of the entries
+	      Set<Map.Entry<Integer,String>> set = denomSorted.entrySet();
+	      
+	      // Get an iterator
+	      Iterator<Map.Entry<Integer,String>> i = set.iterator();
+	      
+	      // Display elements
+	      while(i.hasNext()) {
+	         Map.Entry<Integer,String> me = i.next();
+	         String node = String.valueOf(me);
+	         descendingPath.add(node);
+	         //System.out.print(me.getKey() + ": ");
+	         //System.out.println(me.getValue());
+	      }
+		
+		return descendingPath;
+	}
+	
+	//reverse the entire graph  (parents become childs, child become parents)
+	  /// foreach node in VertexSet
+	   //// if child not in reverseGraph-hashmap, add child to it w/ parent as rev-child
+	   //// if child is already in revGraph, add parent to linkedList of rev-childs
+	//INPUT: global hm , OUTPUT: new reversed-hashmap<String, LinkedList> (node:rev-childs)
+	private void reverseGraph()
+	{
+		reverseHm = new HashMap<String, LinkedList<String>>();
+		
+		Iterator<Entry<String, LinkedList<String>>> it = hm.entrySet().iterator();
+	    while (it.hasNext()) {
+	        Map.Entry<String, LinkedList<String>> pair = it.next();
+	        
+	        String parent = String.valueOf(pair.getKey());
+	        LinkedList<String> childs = (LinkedList<String>) pair.getValue();
+	        Iterator<String> child_iter = childs.iterator();
+
+	        // Iterate thru all vertex children
+		    while (child_iter.hasNext()) {
+		    	String child = String.valueOf(child_iter.next());
+		    	LinkedList<String> reverse_children = new LinkedList<String>();
+		    	
+		 	   //if child not in reverseGraph-hashmap, add child to it w/ parent as rev-child
+		    	if (!reverseHm.containsKey(child)) {
+		    		
+		    		reverse_children.add(parent);
+		    		reverseHm.put(child, reverse_children);
+		    		
+		    	} //if child is already in revGraph, add parent to linkedList of rev-childs
+		    	else {
+		    		reverseHm.get(child).add(parent);
+		    	}
+	        }
+	    }
+	}
+	
+	
+	
+	
+	//starting at top of descending-denom-list
+	/// if N to N-1 of list is connected in rev-graph, then add to current cycle
+	/// if N to N-1 of list is not-connected in rev-graph, then save current cycle,
+	//// .. and start a new cycle with next node
+	private void findCycles() {
+		//this.denomSorted;
+		//this.reverseHm;
+		Iterator<Map.Entry<Integer,String>> diter;
+		diter = this.denomSorted.entrySet().iterator();
+		
+		while (diter.hasNext()) {
+			diter.
+		}
 	}
 
 }
