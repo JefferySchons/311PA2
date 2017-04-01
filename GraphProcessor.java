@@ -113,7 +113,7 @@ public class GraphProcessor {
 	public int numComponents()
 	{
 		//Returns the number of strongly connect components.
-		return 0;
+		return this.cycles.size();
 	}
 	
 	
@@ -312,12 +312,44 @@ public class GraphProcessor {
 	private void findCycles() {
 		//this.denomSorted;
 		//this.reverseHm;
+		
+		cycles = new ArrayList<ArrayList<String>>();
+		ArrayList<String> cycle = new ArrayList<String>();
+		this.cycles.add(cycle);
+		
+		System.out.println("denomSorted: " + denomSorted.toString());
+		System.out.println("hm-normal: " + hm.toString());
+		System.out.println("hm-reverse: " + reverseHm.toString());
+		
 		Iterator<Map.Entry<Integer,String>> diter;
 		diter = this.denomSorted.entrySet().iterator();
 		
+		String previous = diter.next().getValue();
+		cycle.add(previous);
+		
 		while (diter.hasNext()) {
-			diter.
+			String next = diter.next().getValue();
+			
+			/// if N to N-1 of list is connected in rev-graph, then add to current cycle
+			LinkedList<String> children = reverseHm.get(previous);
+			boolean isConnected = children.contains(next);
+			
+			if (isConnected) {
+				
+				cycle.add(next);
+				
+			} else { // if N to N-1 of list is not-connected in rev-graph
+				
+				//add a new cycle to cycles, with next node as first member
+				cycle = new ArrayList<String>();
+				cycle.add(next);
+				this.cycles.add(cycle);
+				
+			}
+			previous = next;
 		}
+		
+		System.out.println("cycles" + cycles.toString());
 	}
 
 }
