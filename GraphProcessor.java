@@ -3,14 +3,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Scanner;
 import java.util.Set;
-import java.util.Stack;
 import java.util.TreeMap;
-import java.util.stream.Collectors;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Queue;
@@ -24,6 +20,8 @@ public class GraphProcessor {
 	private HashMap<String, Integer> numerators;
 	private HashMap<String, Integer> denominators;
 	private TreeMap<Integer, String> denomSorted;
+	private HashMap<String, Integer> sccID;
+	private int largestComponent;
 
 	ArrayList<ArrayList<String>> cycles;
 	
@@ -77,36 +75,36 @@ public class GraphProcessor {
     	System.out.println(hm.toString());
 	}
 	
-	
+	//Returns the out degree of v.
 	public int outDegree(String v)
 	{
-		//Returns the out degree of v.
-		return 0;
+		if (hm.get(v) == null) return 0;
+		
+		return hm.get(v).size();
 	}
 	
-	
+	//Returns true if u and v belong to the same SCC; otherwise returns false
 	public boolean sameComponent(String u, String v)
 	{
-		//Returns true if u and v belong to the same SCC; otherwise returns false
-		return false;
+		if (sccID.get(u) == null | sccID.get(v) == null) return false;
+		return sccID.get(u) == sccID.get(v);
 	}
 	
-	
-	public ArrayList<String> componentVerticies(String v)
-	{
-		//Return all the vertices that belong to the same 
-		//Strongly Connected Component of v (including v). 
-		//This method must return an array list of Strings,
+	//Return all the vertices that belong to the same 
+	//Strongly Connected Component of v (including v). 
+	//This method must return an array list of Strings,
+	public ArrayList<String> componentVertices(String v)
+	{	
+		if (sccID.get(v) == null) return new ArrayList<String>();
 		
-		ArrayList<String> dummy = new ArrayList<String>();
-		return dummy;
+		int cycleIndex = sccID.get(v);
+		return cycles.get(cycleIndex);
 	}
 	
-	
+	//Returns the size of the largest component.
 	public int largestComponent()
 	{
-		//Returns the size of the largest component.
-		return 0;
+		return largestComponent;
 	}
 	
 	
@@ -310,12 +308,11 @@ public class GraphProcessor {
 	/// if N to N-1 of list is not-connected in rev-graph, then save current cycle,
 	//// .. and start a new cycle with next node
 	private void findCycles() {
-		//this.denomSorted;
-		//this.reverseHm;
 		
 		cycles = new ArrayList<ArrayList<String>>();
-		ArrayList<String> cycle = new ArrayList<String>();
-		this.cycles.add(cycle);
+		sccID = new HashMap<String, Integer>();
+		int cycleID = 0;
+		largestComponent = 0;
 		
 		System.out.println("denomSorted: " + denomSorted.toString());
 		System.out.println("hm-normal: " + hm.toString());
@@ -324,32 +321,61 @@ public class GraphProcessor {
 		Iterator<Map.Entry<Integer,String>> diter;
 		diter = this.denomSorted.entrySet().iterator();
 		
-		String previous = diter.next().getValue();
-		cycle.add(previous);
+		
 		
 		while (diter.hasNext()) {
-			String next = diter.next().getValue();
+			String current = diter.next().getValue();
 			
-			/// if N to N-1 of list is connected in rev-graph, then add to current cycle
-			LinkedList<String> children = reverseHm.get(previous);
-			boolean isConnected = children.contains(next);
 			
-			if (isConnected) {
+			if (!sccID.containsKey(current)) {
+				ArrayList<String> cycle = new ArrayList<String>();
 				
-				cycle.add(next);
-				
-			} else { // if N to N-1 of list is not-connected in rev-graph
-				
-				//add a new cycle to cycles, with next node as first member
-				cycle = new ArrayList<String>();
-				cycle.add(next);
 				this.cycles.add(cycle);
+				sccID.put(current, cycleID);
 				
+				cycleBFS(current, cycleID);
+				cycleID++;
 			}
-			previous = next;
+			
 		}
 		
 		System.out.println("cycles" + cycles.toString());
+	}
+	
+	private int cycleBFS(String current, int cycleIndex) {
+		
+		int currentCycleSize = 0;
+		
+		if (current == null  | current.isEmpty()) return 0;
+		
+		Queue<String> q = new LinkedList<String>();
+		q.add(current);
+	
+		
+		while (!q.isEmpty()) {
+			String cur = q.remove();
+			
+			sccID.put(cur,cycleIndex);
+			cycles.get(cycleIndex).add(cur);
+			currentCycleSize++;
+			
+			//System.out.println(cur);
+			LinkedList<String> neighbors = reverseHm.get(cur);
+			if (neighbors == null) {
+				continue;
+			}
+			
+			for (String neighbor: neighbors) {
+				if (!sccID.containsKey(neighbor)) {
+					q.add(neighbor);
+				}
+				//System.out.println("n: " + neighbor);
+			}
+		}
+		if (largestComponent < currentCycleSize) {
+			largestComponent = currentCycleSize;
+		}
+		return 0;
 	}
 
 }
